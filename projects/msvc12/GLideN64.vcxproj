@@ -617,6 +617,7 @@
     <ClCompile Include="..\..\src\TextureFilterHandler.cpp" />
     <ClCompile Include="..\..\src\Textures.cpp" />
     <ClCompile Include="..\..\src\Turbo3D.cpp" />
+    <ClCompile Include="..\..\src\uCodes\ZSortBOSS.cpp" />
     <ClCompile Include="..\..\src\VI.cpp" />
     <ClCompile Include="..\..\src\F3D.cpp" />
     <ClCompile Include="..\..\src\F3DDKR.cpp" />
@@ -765,6 +766,7 @@
     <ClInclude Include="..\..\src\Textures.h" />
     <ClInclude Include="..\..\src\Turbo3D.h" />
     <ClInclude Include="..\..\src\Types.h" />
+    <ClInclude Include="..\..\src\uCodes\ZSortBOSS.h" />
     <ClInclude Include="..\..\src\VI.h" />
     <ClInclude Include="..\..\src\F3D.h" />
     <ClInclude Include="..\..\src\F3DDKR.h" />
