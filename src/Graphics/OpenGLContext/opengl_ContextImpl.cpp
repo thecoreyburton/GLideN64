@@ -54,7 +54,6 @@ void ContextImpl::init()
 		m_createRenderbuffer.reset(bufferObjectFactory.getCreateRenderbuffer());
 		m_initRenderbuffer.reset(bufferObjectFactory.getInitRenderbuffer());
 		m_addFramebufferRenderTarget.reset(bufferObjectFactory.getAddFramebufferRenderTarget());
-		m_createPixelWriteBuffer.reset(bufferObjectFactory.createPixelWriteBuffer());
 		m_createPixelReadBuffer.reset(bufferObjectFactory.createPixelReadBuffer());
 		m_blitFramebuffers.reset(bufferObjectFactory.getBlitFramebuffers());
 	}
@@ -142,10 +141,10 @@ void ContextImpl::clearDepthBuffer()
 	CachedDepthMask * depthMask = m_cachedFunctions->getCachedDepthMask();
 	enableScissor->enable(false);
 
-#ifdef OS_ANDROID
-	depthMask->setDepthMask(false);
-	glClear(GL_DEPTH_BUFFER_BIT);
-#endif
+	if (m_glInfo.renderer == Renderer::PowerVR) {
+		depthMask->setDepthMask(false);
+		glClear(GL_DEPTH_BUFFER_BIT);
+	}
 
 	depthMask->setDepthMask(true);
 	glClear(GL_DEPTH_BUFFER_BIT);
@@ -165,11 +164,23 @@ graphics::ObjectHandle ContextImpl::createTexture(graphics::Parameter _target)
 	return m_createTexture->createTexture(_target);
 }
 
-void ContextImpl::deleteTexture(graphics::ObjectHandle _name)
+void ContextImpl::deleteTexture(graphics::ObjectHandle _name, bool _isFBTexture)
 {
 	u32 glName(_name);
 	glDeleteTextures(1, &glName);
 	m_init2DTexture->reset(_name);
+
+	if (_isFBTexture) {
+		FramebufferAttachments * fbAtt =  m_cachedFunctions->getFBAttachments();
+		for (auto iter = fbAtt->begin(); iter != fbAtt->end(); ++iter) {
+			if (iter->second == u32(_name)) {
+				fbAtt->erase(iter);
+				break;
+			}
+		}
+	}
+
+	m_cachedFunctions->getTexParams()->erase(u32(_name));
 }
 
 void ContextImpl::init2DTexture(const graphics::Context::InitTextureParams & _params)
@@ -251,6 +262,7 @@ void ContextImpl::deleteFramebuffer(graphics::ObjectHandle _name)
 	if (fbo != 0) {
 		glDeleteFramebuffers(1, &fbo);
 		m_cachedFunctions->getCachedBindFramebuffer()->reset();
+		m_cachedFunctions->getFBAttachments()->erase(u32(_name));
 	}
 }
 
@@ -282,11 +294,6 @@ void ContextImpl::addFrameBufferRenderTarget(const graphics::Context::FrameBuffe
 bool ContextImpl::blitFramebuffers(const graphics::Context::BlitFramebuffersParams & _params)
 {
 	return m_blitFramebuffers->blitFramebuffers(_params);
-}
-
-graphics::PixelWriteBuffer * ContextImpl::createPixelWriteBuffer(size_t _sizeInBytes)
-{
-	return m_createPixelWriteBuffer->createPixelWriteBuffer(_sizeInBytes);
 }
 
 graphics::PixelReadBuffer * ContextImpl::createPixelReadBuffer(size_t _sizeInBytes)
@@ -431,10 +438,7 @@ bool ContextImpl::isSupported(graphics::SpecialFeatures _feature) const
 	case graphics::SpecialFeatures::ShaderProgramBinary:
 		return m_glInfo.shaderStorage;
 	case graphics::SpecialFeatures::DepthFramebufferTextures:
-		if (!m_glInfo.isGLES2 || Utils::isExtensionSupported(m_glInfo, "GL_OES_depth_texture"))
-			return true;
-		else
-			return false;
+		return m_glInfo.depthTexture;
 	}
 	return false;
 }
