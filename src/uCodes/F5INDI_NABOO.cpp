@@ -822,7 +822,7 @@ void F5INDI_GenVertices(u32 _w0, u32 _w1)
 	const SWVertex * vertex = CAST_DMEM(const SWVertex*, 0x170);
 	bool verticesToProcess[32];
 
-	u32 A = _SHIFTR(_w0, 0, 16) | _SHIFTR(_w1, 16, 16);
+	u32 A = (_w0 & 0x0000FFFF) | (_w1 & 0xFFFF0000);
 	u32 B = 1;
 	u32 count = 0;
 
