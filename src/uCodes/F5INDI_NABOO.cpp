@@ -12,6 +12,7 @@
 #include "gSP.h"
 #include "gDP.h"
 #include "Config.h"
+#include "Combiner.h"
 #include "FrameBuffer.h"
 #include "DisplayWindow.h"
 #include "Debugger.h"
@@ -1052,21 +1053,24 @@ void F5INDI_DrawParticle()
 			gDP.combine.mRGB1 = G_CCMUX_SHADE;
 		if (gDP.combine.mA1 == G_ACMUX_PRIMITIVE)
 			gDP.combine.mA1 = G_ACMUX_SHADE;
-		gDP.changed |= CHANGED_COMBINE;
 		const u32 othermodeL = gDP.otherMode.l;
 		gDP.otherMode.depthSource = G_ZS_PIXEL;
+		// Replace blending mode
+		gDP.otherMode.l = 0x00550000 | (gDP.otherMode.l & 0xFFFF);
 		const u32 geometryMode = gSP.geometryMode;
 		gSP.geometryMode |= G_ZBUFFER;
 		gSP.geometryMode &= ~G_FOG;
+		CombinerInfo::get().setCombine(gDP.combine.mux);
 		const u32 enableLegacyBlending = config.generalEmulation.enableLegacyBlending;
 		config.generalEmulation.enableLegacyBlending = 1;
+		gDP.changed |= CHANGED_COMBINE | CHANGED_RENDERMODE;
 		GraphicsDrawer & drawer = dwnd().getDrawer();
 		drawer.drawScreenSpaceTriangle(drawer.getDMAVerticesCount(), graphics::drawmode::TRIANGLES);
 		gDP.combine = curCombine;
 		gDP.otherMode.l = othermodeL;
 		gSP.geometryMode = geometryMode;
 		config.generalEmulation.enableLegacyBlending = enableLegacyBlending;
-		gDP.changed |= CHANGED_COMBINE;
+		gDP.changed |= CHANGED_COMBINE | CHANGED_RENDERMODE;
 	}
 }
 #endif //F5INDI_TexrectGen_Particle_Optimization
