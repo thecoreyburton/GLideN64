@@ -103,6 +103,8 @@ namespace opengl {
 
 		void enable(bool _enable);
 
+		u32 get();
+
 	private:
 		const graphics::Parameter m_parameter;
 	};
@@ -214,7 +216,6 @@ namespace opengl {
 		GLfloat maxAnisotropy;
 	};
 
-	typedef std::unordered_map<u32, u32> FramebufferAttachments;
 	typedef std::unordered_map<u32, texture_params> TextureParams;
 
 	/*---------------CachedFunctions-------------*/
@@ -259,15 +260,12 @@ namespace opengl {
 
 		CachedTextureUnpackAlignment * getCachedTextureUnpackAlignment();
 
-		FramebufferAttachments * getFBAttachments();
-
 		TextureParams * getTexParams();
 
 	private:
 		typedef std::unordered_map<u32, CachedEnable> EnableParameters;
 
 		TextureParams m_texparams;
-		FramebufferAttachments m_fbattachments;
 		EnableParameters m_enables;
 		CachedBindTexture m_bindTexture;
 		CachedBindFramebuffer m_bindFramebuffer;

@@ -132,8 +132,6 @@ public:
 		return (triangles.vertices[_v0].clip & triangles.vertices[_v1].clip & triangles.vertices[_v2].clip) != 0;
 	}
 
-	bool isImageTexturesSupported() const { return m_bImageTexture; }
-
 	SPVertex & getVertex(u32 _v) { return triangles.vertices[_v]; }
 
 	SPVertex * getVertexPtr(u32 _v) { return triangles.vertices.data() + _v; }
@@ -143,7 +141,7 @@ public:
 	SPVertex * getDMAVerticesData() { return m_dmaVertices.data(); }
 
 	SPVertex & getCurrentDMAVertex();
-	size_t getDMAVerticesCount() const { return m_dmaVerticesNum; }
+	u32 getDMAVerticesCount() const { return m_dmaVerticesNum; }
 
 	void updateScissor(FrameBuffer * _pBuffer) const;
 
@@ -152,6 +150,8 @@ public:
 	void dropRenderState() { m_drawingState = DrawingState::Non; }
 
 	void flush() { m_texrectDrawer.draw(); }
+
+	bool isTexrectDrawerMode() const { return !m_texrectDrawer.isEmpty(); }
 
 private:
 	friend class DisplayWindow;
@@ -172,7 +172,7 @@ private:
 	bool _setUnsupportedBlendMode() const;
 	void _updateCullFace() const;
 	void _updateViewport() const;
-	void _updateScreenCoordsViewport() const;
+	void _updateScreenCoordsViewport(const FrameBuffer * _pBuffer = nullptr) const;
 	void _updateDepthUpdate() const;
 	void _updateDepthCompare() const;
 	void _updateTextures() const;
@@ -197,13 +197,12 @@ private:
 	} triangles;
 
 	std::vector<SPVertex> m_dmaVertices;
-	size_t m_dmaVerticesNum;
+	u32 m_dmaVerticesNum;
 
 	RectVertex m_rect[4];
 
 	u32 m_modifyVertices;
 	f32 m_maxLineWidth;
-	bool m_bImageTexture;
 	bool m_bFlatColors;
 	TexrectDrawer m_texrectDrawer;
 	OSDMessages m_osdMessages;

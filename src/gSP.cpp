@@ -1445,7 +1445,7 @@ void gSPDMATriangles( u32 tris, u32 n ){
 				mode |= G_CULL_FRONT;
 		}
 		if ((gSP.geometryMode&G_CULL_BOTH) != mode) {
-			drawer.drawDMATriangles(pVtx - drawer.getDMAVerticesData());
+			drawer.drawDMATriangles(static_cast<u32>(pVtx - drawer.getDMAVerticesData()));
 			pVtx = drawer.getDMAVerticesData();
 			gSP.geometryMode &= ~G_CULL_BOTH;
 			gSP.geometryMode |= mode;
@@ -1474,7 +1474,7 @@ void gSPDMATriangles( u32 tris, u32 n ){
 		++triangles;
 	}
 	DebugMsg(DEBUG_NORMAL, "gSPDMATriangles( 0x%08X, %i );\n");
-	drawer.drawDMATriangles(pVtx - drawer.getDMAVerticesData());
+	drawer.drawDMATriangles(static_cast<u32>(pVtx - drawer.getDMAVerticesData()));
 }
 
 void gSP1Quadrangle( s32 v0, s32 v1, s32 v2, s32 v3 )
@@ -2232,7 +2232,7 @@ void _copyDepthBuffer()
 	if (!config.frameBufferEmulation.enable)
 		return;
 
-	if (!gfxContext.isSupported(SpecialFeatures::BlitFramebuffer))
+	if (!Context::BlitFramebuffer)
 		return;
 
 	// The game copies content of depth buffer into current color buffer
@@ -2271,7 +2271,7 @@ void _copyDepthBuffer()
 	// Restore objects
 	if (pTmpBuffer->m_pDepthBuffer != nullptr)
 		pTmpBuffer->m_pDepthBuffer->setDepthAttachment(fbList.getCurrent()->m_FBO, bufferTarget::READ_FRAMEBUFFER);
-	gfxContext.bindFramebuffer(bufferTarget::READ_FRAMEBUFFER, ObjectHandle::null);
+	gfxContext.bindFramebuffer(bufferTarget::READ_FRAMEBUFFER, ObjectHandle::defaultFramebuffer);
 
 	// Set back current depth buffer
 	dbList.saveBuffer(gDP.depthImageAddress);

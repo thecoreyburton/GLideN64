@@ -24,7 +24,13 @@ namespace opengl {
 
 		void destroy() override;
 
+		void setClampMode(graphics::ClampMode _mode) override;
+
+		graphics::ClampMode getClampMode() override;
+
 		void enable(graphics::EnableParam _parameter, bool _enable) override;
+
+		u32 isEnabled(graphics::EnableParam _parameter) override;
 
 		void cullFace(graphics::CullModeParam _mode) override;
 
@@ -50,7 +56,7 @@ namespace opengl {
 
 		graphics::ObjectHandle createTexture(graphics::Parameter _target) override;
 
-		void deleteTexture(graphics::ObjectHandle _name, bool _isFBTexture) override;
+		void deleteTexture(graphics::ObjectHandle _name) override;
 
 		void init2DTexture(const graphics::Context::InitTextureParams & _params) override;
 
@@ -70,6 +76,8 @@ namespace opengl {
 
 		u32 convertInternalTextureFormat(u32 _format) const override;
 
+		void textureBarrier() override;
+
 		/*---------------Framebuffer-------------*/
 
 		graphics::FramebufferTextureFormats * getFramebufferTextureFormats() override;
@@ -87,6 +95,8 @@ namespace opengl {
 		void addFrameBufferRenderTarget(const graphics::Context::FrameBufferRenderTarget & _params) override;
 
 		bool blitFramebuffers(const graphics::Context::BlitFramebuffersParams & _params) override;
+
+		void setDrawBuffers(u32 _num) override;
 
 		/*---------------Pixelbuffer-------------*/
 
@@ -156,6 +166,7 @@ namespace opengl {
 		std::unique_ptr<glsl::CombinerProgramBuilder> m_combinerProgramBuilder;
 		std::unique_ptr<glsl::SpecialShadersFactory> m_specialShadersFactory;
 		GLInfo m_glInfo;
+		graphics::ClampMode m_clampMode;
 	};
 
 }

@@ -6,7 +6,8 @@ LOCAL_PATH := $(JNI_LOCAL_PATH)
 SRCDIR := ./$(BASE_DIR)/src
 
 MY_LOCAL_MODULE := mupen64plus-video-gliden64
-MY_LOCAL_SHARED_LIBRARIES := freetype glidenhq osal
+MY_LOCAL_SHARED_LIBRARIES := freetype osal
+MY_LOCAL_STATIC_LIBRARIES := glidenhq
 MY_LOCAL_ARM_MODE := arm
 
 MY_LOCAL_C_INCLUDES :=                          \
@@ -23,7 +24,6 @@ MY_LOCAL_SRC_FILES :=                                                           
     $(SRCDIR)/CommonPluginAPI.cpp                                                  \
     $(SRCDIR)/Config.cpp                                                           \
     $(SRCDIR)/convert.cpp                                                          \
-    $(SRCDIR)/CRC_OPT.cpp                                                          \
     $(SRCDIR)/DebugDump.cpp                                                        \
     $(SRCDIR)/Debugger.cpp                                                         \
     $(SRCDIR)/DepthBuffer.cpp                                                      \
@@ -140,14 +140,16 @@ ifeq ($(TARGET_ARCH_ABI), armeabi-v7a)
     MY_LOCAL_SRC_FILES += $(SRCDIR)/Neon/3DMathNeon.cpp
     MY_LOCAL_SRC_FILES += $(SRCDIR)/Neon/gSPNeon.cpp
     MY_LOCAL_SRC_FILES += $(SRCDIR)/Neon/RSP_LoadMatrixNeon.cpp
+    MY_LOCAL_SRC_FILES += $(SRCDIR)/Neon/CRC_OPT_NEON.cpp
     MY_LOCAL_CFLAGS += -D__NEON_OPT
-    MY_LOCAL_CFLAGS += -D__VEC4_OPT -mfpu=neon -mfloat-abi=softfp -ftree-vectorize -funsafe-math-optimizations -fno-finite-math-only
+    MY_LOCAL_CFLAGS += -D__VEC4_OPT -mfpu=neon
 
 else ifeq ($(TARGET_ARCH_ABI), x86)
 #    MY_LOCAL_CFLAGS += -DX86_ASM
     MY_LOCAL_CFLAGS += -D__VEC4_OPT
     MY_LOCAL_SRC_FILES += $(SRCDIR)/3DMath.cpp
     MY_LOCAL_SRC_FILES += $(SRCDIR)/RSP_LoadMatrix.cpp
+    MY_LOCAL_SRC_FILES += $(SRCDIR)/CRC_OPT.cpp
 endif
 
 ###########
@@ -156,6 +158,7 @@ endif
 include $(CLEAR_VARS)
 LOCAL_MODULE            := $(MY_LOCAL_MODULE)
 LOCAL_SHARED_LIBRARIES  := $(MY_LOCAL_SHARED_LIBRARIES)
+LOCAL_STATIC_LIBRARIES  := $(MY_LOCAL_STATIC_LIBRARIES)
 LOCAL_ARM_MODE          := $(MY_LOCAL_ARM_MODE)
 LOCAL_C_INCLUDES        := $(MY_LOCAL_C_INCLUDES) $(LOCAL_PATH)/GL/
 LOCAL_SRC_FILES         := $(MY_LOCAL_SRC_FILES)

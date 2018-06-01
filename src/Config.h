@@ -4,7 +4,7 @@
 #include <string>
 #include "Types.h"
 
-#define CONFIG_VERSION_CURRENT 20U
+#define CONFIG_VERSION_CURRENT 21U
 
 #define BILINEAR_3POINT   0
 #define BILINEAR_STANDARD 1
@@ -61,7 +61,7 @@ struct Config
 		u32 enableFragmentDepthWrite;
 		u32 enableBlitScreenWorkaround;
 		u32 hacks;
-#ifdef OS_ANDROID
+#if defined(OS_ANDROID) || defined(OS_IOS)
 		u32 forcePolygonOffset;
 		f32 polygonOffsetFactor;
 		f32 polygonOffsetUnits;
@@ -101,6 +101,7 @@ struct Config
 		u32 bufferSwapMode; // 0: on VI update call; 1: on VI origin change; 2: on main frame buffer update
 		u32 nativeResFactor;
 		u32 N64DepthCompare;
+		u32 forceDepthBufferClear;
 		u32 copyAuxToRDRAM;
 		// Buffer read/write
 		u32 copyToRDRAM;

@@ -40,7 +40,7 @@ void Config::resetToDefaults()
 	generalEmulation.enableNativeResTexrects = 0;
 	generalEmulation.enableLegacyBlending = 0;
 	generalEmulation.hacks = 0;
-#ifdef OS_ANDROID
+#if defined(OS_ANDROID) || defined(OS_IOS)
 	generalEmulation.enableFragmentDepthWrite = 0;
 	generalEmulation.enableBlitScreenWorkaround = 0;
 	generalEmulation.forcePolygonOffset = 0;
@@ -56,6 +56,7 @@ void Config::resetToDefaults()
 	frameBufferEmulation.copyAuxToRDRAM = 0;
 	frameBufferEmulation.copyToRDRAM = ctDoubleBuffer;
 	frameBufferEmulation.N64DepthCompare = 0;
+	frameBufferEmulation.forceDepthBufferClear = 0;
 	frameBufferEmulation.aspect = a43;
 	frameBufferEmulation.bufferSwapMode = bsOnVerticalInterrupt;
 	frameBufferEmulation.nativeResFactor = 0;
@@ -94,11 +95,9 @@ void Config::resetToDefaults()
 #elif defined (OS_ANDROID)
 	font.name.assign("DroidSans.ttf");
 #elif defined (PANDORA)
-	font.name.assign("truetype/LiberationMono-Regular.ttf");
-#elif defined (OS_LINUX)
-	font.name.assign("liberation/LiberationMono-Regular.ttf");
+	font.name.assign("LiberationMono-Regular.ttf");
 #else
-	font.name.assign("truetype/freefont/FreeSans.ttf");
+	font.name = "FreeSans.ttf";
 #endif
 	font.size = 18;
 	font.color[0] = 0xB5;

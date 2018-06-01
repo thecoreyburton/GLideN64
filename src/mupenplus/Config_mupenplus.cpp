@@ -85,7 +85,7 @@ bool Config_SetDefault()
 	assert(res == M64ERR_SUCCESS);
 	res = ConfigSetDefaultBool(g_configVideoGliden64, "EnableCustomSettings", config.generalEmulation.enableCustomSettings, "Use GLideN64 per-game settings.");
 	assert(res == M64ERR_SUCCESS);
-#ifdef OS_ANDROID
+#if defined(OS_ANDROID) || defined(OS_IOS)
 	res = ConfigSetDefaultBool(g_configVideoGliden64, "EnableBlitScreenWorkaround", config.generalEmulation.enableBlitScreenWorkaround, "Enable to render everything upside down");
 	assert(res == M64ERR_SUCCESS);
 	res = ConfigSetDefaultBool(g_configVideoGliden64, "ForcePolygonOffset", config.generalEmulation.forcePolygonOffset, "If true, use polygon offset values specified below");
@@ -101,6 +101,8 @@ bool Config_SetDefault()
 	res = ConfigSetDefaultBool(g_configVideoGliden64, "EnableCopyAuxiliaryToRDRAM", config.frameBufferEmulation.copyAuxToRDRAM, "Copy auxiliary buffers to RDRAM");
 	assert(res == M64ERR_SUCCESS);
 	res = ConfigSetDefaultBool(g_configVideoGliden64, "EnableN64DepthCompare", config.frameBufferEmulation.N64DepthCompare, "Enable N64 depth compare instead of OpenGL standard one. Experimental.");
+	assert(res == M64ERR_SUCCESS);
+	res = ConfigSetDefaultBool(g_configVideoGliden64, "ForceDepthBufferClear", config.frameBufferEmulation.forceDepthBufferClear, "Force depth buffer clear. Hack. Needed for Eikou no Saint Andrews.");
 	assert(res == M64ERR_SUCCESS);
 	res = ConfigSetDefaultBool(g_configVideoGliden64, "DisableFBInfo", config.frameBufferEmulation.fbInfoDisabled, "Disable buffers read/write with FBInfo. Use for games, which do not work with FBInfo.");
 	assert(res == M64ERR_SUCCESS);
@@ -261,6 +263,8 @@ void Config_LoadCustomConfig()
 	if (result == M64ERR_SUCCESS) config.frameBufferEmulation.bufferSwapMode = atoi(value);
 	result = ConfigExternalGetParameter(fileHandle, sectionName, "frameBufferEmulation\\N64DepthCompare", value, sizeof(value));
 	if (result == M64ERR_SUCCESS) config.frameBufferEmulation.N64DepthCompare = atoi(value);
+	result = ConfigExternalGetParameter(fileHandle, sectionName, "frameBufferEmulation\\forceDepthBufferClear", value, sizeof(value));
+	if (result == M64ERR_SUCCESS) config.frameBufferEmulation.forceDepthBufferClear = atoi(value);
 	result = ConfigExternalGetParameter(fileHandle, sectionName, "frameBufferEmulation\\copyAuxToRDRAM", value, sizeof(value));
 	if (result == M64ERR_SUCCESS) config.frameBufferEmulation.copyAuxToRDRAM = atoi(value);
 	result = ConfigExternalGetParameter(fileHandle, sectionName, "frameBufferEmulation\\copyToRDRAM", value, sizeof(value));
@@ -335,7 +339,7 @@ void Config_LoadConfig()
 	config.generalEmulation.enableLegacyBlending = ConfigGetParamBool(g_configVideoGliden64, "EnableLegacyBlending");
 	config.generalEmulation.enableFragmentDepthWrite = ConfigGetParamBool(g_configVideoGliden64, "EnableFragmentDepthWrite");
 	config.generalEmulation.enableCustomSettings = ConfigGetParamBool(g_configVideoGliden64, "EnableCustomSettings");
-#ifdef OS_ANDROID
+#if defined(OS_ANDROID) || defined(OS_IOS)
 	config.generalEmulation.enableBlitScreenWorkaround = ConfigGetParamBool(g_configVideoGliden64, "EnableBlitScreenWorkaround");
 	config.generalEmulation.forcePolygonOffset = ConfigGetParamBool(g_configVideoGliden64, "ForcePolygonOffset");
 	config.generalEmulation.polygonOffsetFactor = ConfigGetParamFloat(g_configVideoGliden64, "PolygonOffsetFactor");
@@ -348,6 +352,7 @@ void Config_LoadConfig()
 	config.frameBufferEmulation.copyDepthToRDRAM = ConfigGetParamInt(g_configVideoGliden64, "EnableCopyDepthToRDRAM");
 	config.frameBufferEmulation.copyFromRDRAM = ConfigGetParamBool(g_configVideoGliden64, "EnableCopyColorFromRDRAM");
 	config.frameBufferEmulation.N64DepthCompare = ConfigGetParamBool(g_configVideoGliden64, "EnableN64DepthCompare");
+	config.frameBufferEmulation.forceDepthBufferClear = ConfigGetParamBool(g_configVideoGliden64, "ForceDepthBufferClear");
 	config.frameBufferEmulation.fbInfoDisabled = ConfigGetParamBool(g_configVideoGliden64, "DisableFBInfo");
 	config.frameBufferEmulation.fbInfoReadColorChunk = ConfigGetParamBool(g_configVideoGliden64, "FBInfoReadColorChunk");
 	config.frameBufferEmulation.fbInfoReadDepthChunk = ConfigGetParamBool(g_configVideoGliden64, "FBInfoReadDepthChunk");

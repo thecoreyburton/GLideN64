@@ -17,6 +17,7 @@
 using namespace opengl;
 
 ContextImpl::ContextImpl()
+	: m_clampMode(graphics::ClampMode::ClippingEnabled)
 {
 	initGLFunctions();
 }
@@ -28,6 +29,7 @@ ContextImpl::~ContextImpl()
 
 void ContextImpl::init()
 {
+	m_clampMode = graphics::ClampMode::ClippingEnabled;
 	m_glInfo.init();
 
 	if (m_glInfo.isGLES2) {
@@ -84,9 +86,40 @@ void ContextImpl::destroy()
 	m_cachedFunctions.reset();
 }
 
+void ContextImpl::setClampMode(graphics::ClampMode _mode)
+{
+	if (!m_glInfo.isGLESX) {
+		switch (_mode) {
+		case graphics::ClampMode::ClippingEnabled:
+			m_cachedFunctions->getCachedEnable(graphics::enable::DEPTH_CLAMP)->enable(false);
+			m_cachedFunctions->getCachedEnable(graphics::enable::CLIP_DISTANCE0)->enable(false);
+			break;
+		case graphics::ClampMode::NoNearPlaneClipping:
+			m_cachedFunctions->getCachedEnable(graphics::enable::DEPTH_CLAMP)->enable(true);
+			m_cachedFunctions->getCachedEnable(graphics::enable::CLIP_DISTANCE0)->enable(true);
+			break;
+		case graphics::ClampMode::NoClipping:
+			m_cachedFunctions->getCachedEnable(graphics::enable::DEPTH_CLAMP)->enable(true);
+			m_cachedFunctions->getCachedEnable(graphics::enable::CLIP_DISTANCE0)->enable(false);
+			break;
+		}
+	}
+	m_clampMode = _mode;
+}
+
+graphics::ClampMode ContextImpl::getClampMode()
+{
+	return m_clampMode;
+}
+
 void ContextImpl::enable(graphics::EnableParam _parameter, bool _enable)
 {
 	m_cachedFunctions->getCachedEnable(_parameter)->enable(_enable);
+}
+
+u32 ContextImpl::isEnabled(graphics::EnableParam _parameter)
+{
+	return m_cachedFunctions->getCachedEnable(_parameter)->get();
 }
 
 void ContextImpl::cullFace(graphics::CullModeParam _mode)
@@ -129,8 +162,13 @@ void ContextImpl::clearColorBuffer(f32 _red, f32 _green, f32 _blue, f32 _alpha)
 	CachedEnable * enableScissor = m_cachedFunctions->getCachedEnable(graphics::enable::SCISSOR_TEST);
 	enableScissor->enable(false);
 
-	m_cachedFunctions->getCachedClearColor()->setClearColor(_red, _green, _blue, _alpha);
-	glClear(GL_COLOR_BUFFER_BIT);
+	if (m_glInfo.isGLES2) {
+		m_cachedFunctions->getCachedClearColor()->setClearColor(_red, _green, _blue, _alpha);
+		glClear(GL_COLOR_BUFFER_BIT);
+	} else {
+		GLfloat values[4] = {_red, _green, _blue, _alpha};
+		glClearBufferfv(GL_COLOR, 0, values);
+	}
 
 	enableScissor->enable(true);
 }
@@ -164,21 +202,11 @@ graphics::ObjectHandle ContextImpl::createTexture(graphics::Parameter _target)
 	return m_createTexture->createTexture(_target);
 }
 
-void ContextImpl::deleteTexture(graphics::ObjectHandle _name, bool _isFBTexture)
+void ContextImpl::deleteTexture(graphics::ObjectHandle _name)
 {
 	u32 glName(_name);
 	glDeleteTextures(1, &glName);
 	m_init2DTexture->reset(_name);
-
-	if (_isFBTexture) {
-		FramebufferAttachments * fbAtt =  m_cachedFunctions->getFBAttachments();
-		for (auto iter = fbAtt->begin(); iter != fbAtt->end(); ++iter) {
-			if (iter->second == u32(_name)) {
-				fbAtt->erase(iter);
-				break;
-			}
-		}
-	}
 
 	m_cachedFunctions->getTexParams()->erase(u32(_name));
 }
@@ -223,8 +251,7 @@ s32 ContextImpl::getMaxTextureSize() const
 
 void ContextImpl::bindImageTexture(const graphics::Context::BindImageTextureParameters & _params)
 {
-	if (IS_GL_FUNCTION_VALID(glBindImageTexture))
-		glBindImageTexture(GLuint(_params.imageUnit), GLuint(_params.texture), 0, GL_FALSE, 0, GLenum(_params.accessMode), GLenum(_params.textureFormat));
+	glBindImageTexture(GLuint(_params.imageUnit), GLuint(_params.texture), 0, GL_FALSE, 0, GLenum(_params.accessMode), GLenum(_params.textureFormat));
 }
 
 u32 ContextImpl::convertInternalTextureFormat(u32 _format) const
@@ -242,6 +269,14 @@ u32 ContextImpl::convertInternalTextureFormat(u32 _format) const
 	}
 
 	return _format;
+}
+
+void ContextImpl::textureBarrier()
+{
+	if (m_glInfo.texture_barrier)
+		glTextureBarrier();
+	else if (m_glInfo.texture_barrierNV)
+		glTextureBarrierNV();
 }
 
 /*---------------Framebuffer-------------*/
@@ -262,7 +297,6 @@ void ContextImpl::deleteFramebuffer(graphics::ObjectHandle _name)
 	if (fbo != 0) {
 		glDeleteFramebuffers(1, &fbo);
 		m_cachedFunctions->getCachedBindFramebuffer()->reset();
-		m_cachedFunctions->getFBAttachments()->erase(u32(_name));
 	}
 }
 
@@ -294,6 +328,12 @@ void ContextImpl::addFrameBufferRenderTarget(const graphics::Context::FrameBuffe
 bool ContextImpl::blitFramebuffers(const graphics::Context::BlitFramebuffersParams & _params)
 {
 	return m_blitFramebuffers->blitFramebuffers(_params);
+}
+
+void ContextImpl::setDrawBuffers(u32 _num)
+{
+	GLenum targets[4] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
+	glDrawBuffers(_num, targets);
 }
 
 graphics::PixelReadBuffer * ContextImpl::createPixelReadBuffer(size_t _sizeInBytes)
@@ -427,10 +467,6 @@ bool ContextImpl::isSupported(graphics::SpecialFeatures _feature) const
 		return !m_glInfo.isGLES2;
 	case graphics::SpecialFeatures::WeakBlitFramebuffer:
 		return m_glInfo.isGLESX;
-	case graphics::SpecialFeatures::FragmentDepthWrite:
-		return !m_glInfo.isGLES2;
-	case graphics::SpecialFeatures::NearPlaneClipping:
-		return !m_glInfo.isGLESX;
 	case graphics::SpecialFeatures::Multisampling:
 		return m_glInfo.msaa;
 	case graphics::SpecialFeatures::ImageTextures:
@@ -439,6 +475,14 @@ bool ContextImpl::isSupported(graphics::SpecialFeatures _feature) const
 		return m_glInfo.shaderStorage;
 	case graphics::SpecialFeatures::DepthFramebufferTextures:
 		return m_glInfo.depthTexture;
+	case graphics::SpecialFeatures::IntegerTextures:
+		return !m_glInfo.isGLES2;
+	case graphics::SpecialFeatures::ClipControl:
+		return !m_glInfo.isGLESX;
+	case graphics::SpecialFeatures::FramebufferFetch:
+		return m_glInfo.ext_fetch;
+	case graphics::SpecialFeatures::TextureBarrier:
+		return m_glInfo.texture_barrier || m_glInfo.texture_barrierNV;
 	}
 	return false;
 }

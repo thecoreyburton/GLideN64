@@ -1,6 +1,7 @@
 #include <Config.h>
 #include "glsl_CombinerProgramUniformFactory.h"
 #include <Graphics/Parameters.h>
+#include <Graphics/Context.h>
 
 #include <Textures.h>
 #include <NoiseTexture.h>
@@ -138,6 +139,22 @@ public:
 
 private:
 	iUniform uDepthTex;
+};
+
+class UZLutTexture : public UniformGroup
+{
+public:
+	UZLutTexture(GLuint _program) {
+		LocateUniform(uZlutImage);
+	}
+
+	void update(bool _force) override
+	{
+		uZlutImage.set(int(graphics::textureIndices::ZLUTTex), _force);
+	}
+
+private:
+	iUniform uZlutImage;
 };
 
 class UTextures : public UniformGroup
@@ -402,6 +419,11 @@ public:
 
 	void update(bool _force) override
 	{
+		if (dwnd().getDrawer().isTexrectDrawerMode()) {
+			uScreenScale.set(1.0f, 1.0f, _force);
+			return;
+		}
+
 		FrameBuffer * pBuffer = frameBufferList().getCurrent();
 		if (pBuffer == nullptr)
 			uScreenScale.set(dwnd().getScaleX(), dwnd().getScaleY(), _force);
@@ -647,6 +669,53 @@ public:
 private:
 	iUniform uRenderTarget;
 };
+
+class UClampMode : public UniformGroup
+{
+public:
+	UClampMode(GLuint _program) {
+		LocateUniform(uClampMode);
+	}
+
+	void update(bool _force) override
+	{
+		int clampMode = -1;
+		switch (gfxContext.getClampMode())
+		{
+		case graphics::ClampMode::ClippingEnabled:
+			clampMode = 0;
+			break;
+		case graphics::ClampMode::NoNearPlaneClipping:
+			clampMode = 1;
+			break;
+		case graphics::ClampMode::NoClipping:
+			clampMode = 2;
+			break;
+		}
+		uClampMode.set(clampMode, _force);
+	}
+
+private:
+	iUniform uClampMode;
+};
+
+class UPolygonOffset : public UniformGroup
+{
+public:
+	UPolygonOffset(GLuint _program) {
+		LocateUniform(uPolygonOffset);
+	}
+
+	void update(bool _force) override
+	{
+		f32 offset = gfxContext.isEnabled(graphics::enable::POLYGON_OFFSET_FILL) ? 0.003f : 0.0f;
+		uPolygonOffset.set(offset, _force);
+	}
+
+private:
+	fUniform uPolygonOffset;
+};
+
 
 class UScreenCoordsScale : public UniformGroup
 {
@@ -909,6 +978,9 @@ void CombinerProgramUniformFactory::buildUniforms(GLuint _program,
 
 	_uniforms.emplace_back(new UAlphaTestInfo(_program));
 
+	if ((config.generalEmulation.hacks & hack_RE2) != 0 && config.generalEmulation.enableFragmentDepthWrite != 0)
+		_uniforms.emplace_back(new UZLutTexture(_program));
+
 	if (config.frameBufferEmulation.N64DepthCompare != 0)
 		_uniforms.emplace_back(new UDepthInfo(_program));
 	else
@@ -917,6 +989,11 @@ void CombinerProgramUniformFactory::buildUniforms(GLuint _program,
 	if (config.generalEmulation.enableFragmentDepthWrite != 0 ||
 		config.frameBufferEmulation.N64DepthCompare != 0)
 		_uniforms.emplace_back(new URenderTarget(_program));
+
+	if (m_glInfo.isGLESX && m_glInfo.noPerspective) {
+		_uniforms.emplace_back(new UClampMode(_program));
+		_uniforms.emplace_back(new UPolygonOffset(_program));
+	}
 
 	_uniforms.emplace_back(new UScreenCoordsScale(_program));
 

@@ -31,7 +31,6 @@ GraphicsDrawer::GraphicsDrawer()
 , m_dmaVerticesNum(0)
 , m_modifyVertices(0)
 , m_maxLineWidth(1.0f)
-, m_bImageTexture(false)
 , m_bFlatColors(false)
 {
 	memset(m_rect, 0, sizeof(m_rect));
@@ -88,7 +87,7 @@ void GraphicsDrawer::addTriangle(int _v0, int _v1, int _v2)
 		}
 	}
 
-	if (!gfxContext.isSupported(SpecialFeatures::NearPlaneClipping)) {
+	if (!Context::ClipControl) {
 		if (GBI.isNoN() && gDP.otherMode.depthCompare == 0 && gDP.otherMode.depthUpdate == 0) {
 			for (u32 i = firstIndex; i < triangles.num; ++i) {
 				SPVertex & vtx = triangles.vertices[triangles.elements[i]];
@@ -155,11 +154,11 @@ void GraphicsDrawer::_updateDepthCompare() const
 
 			gfxContext.enable(enable::DEPTH_TEST, true);
 			if (!GBI.isNoN())
-				gfxContext.enable(enable::DEPTH_CLAMP, false);
+				gfxContext.setClampMode(graphics::ClampMode::ClippingEnabled);
 		} else {
 			gfxContext.enable(enable::DEPTH_TEST, false);
 			if (!GBI.isNoN())
-				gfxContext.enable(enable::DEPTH_CLAMP, true);
+				gfxContext.setClampMode(graphics::ClampMode::NoClipping);
 		}
 	}
 }
@@ -255,10 +254,10 @@ void GraphicsDrawer::_updateViewport() const
 	gSP.changed &= ~CHANGED_VIEWPORT;
 }
 
-void GraphicsDrawer::_updateScreenCoordsViewport() const
+void GraphicsDrawer::_updateScreenCoordsViewport(const FrameBuffer * _pBuffer) const
 {
 	DisplayWindow & wnd = DisplayWindow::get();
-	const FrameBuffer * pCurrentBuffer = frameBufferList().getCurrent();
+	const FrameBuffer * pCurrentBuffer = _pBuffer != nullptr ? _pBuffer : frameBufferList().getCurrent();
 
 	u32 bufferWidth, bufferHeight;
 	f32 viewportScaleX, viewportScaleY;
@@ -654,7 +653,7 @@ void GraphicsDrawer::_updateStates(DrawingState _drawingState) const
 
 	cmbInfo.updateParameters();
 
-	if (!gfxContext.isSupported(SpecialFeatures::FragmentDepthWrite))
+	if (!config.generalEmulation.enableFragmentDepthWrite)
 		return;
 
 	if (gDP.colorImage.address == gDP.depthImageAddress &&
@@ -851,15 +850,16 @@ void GraphicsDrawer::_drawThickLine(int _v0, int _v1, float _width)
 
 	setDMAVerticesSize(4);
 	SPVertex * pVtx = getDMAVerticesData();
+	const f32 ySign = GBI.isNegativeY() ? -1.0f : 1.0f;
 	pVtx[0] = triangles.vertices[_v0];
 	pVtx[0].x = pVtx[0].x / pVtx[0].w * gSP.viewport.vscale[0] + gSP.viewport.vtrans[0];
-	pVtx[0].y = pVtx[0].y / pVtx[0].w * gSP.viewport.vscale[1] + gSP.viewport.vtrans[1];
+	pVtx[0].y = ySign * pVtx[0].y / pVtx[0].w * gSP.viewport.vscale[1] + gSP.viewport.vtrans[1];
 	pVtx[0].z = pVtx[0].z / pVtx[0].w * gSP.viewport.vscale[2] + gSP.viewport.vtrans[2];
 	pVtx[1] = pVtx[0];
 
 	pVtx[2] = triangles.vertices[_v1];
 	pVtx[2].x = pVtx[2].x / pVtx[2].w * gSP.viewport.vscale[0] + gSP.viewport.vtrans[0];
-	pVtx[2].y = pVtx[2].y / pVtx[2].w * gSP.viewport.vscale[1] + gSP.viewport.vtrans[1];
+	pVtx[2].y = ySign * pVtx[2].y / pVtx[2].w * gSP.viewport.vscale[1] + gSP.viewport.vtrans[1];
 	pVtx[2].z = pVtx[2].z / pVtx[2].w * gSP.viewport.vscale[2] + gSP.viewport.vtrans[2];
 	pVtx[3] = pVtx[2];
 
@@ -991,7 +991,7 @@ bool texturedRectShadowMap(const GraphicsDrawer::TexturedRectParams &)
 		if (gDP.textureImage.size == 2 && gDP.textureImage.address >= gDP.depthImageAddress &&
 			gDP.textureImage.address < (gDP.depthImageAddress + gDP.colorImage.width*gDP.colorImage.width * 6 / 4)) {
 
-			if (!Context::imageTextures)
+			if (!Context::IntegerTextures)
 				return true;
 
 			pCurrentBuffer->m_pDepthBuffer->activateDepthBufferTexture(pCurrentBuffer);
@@ -1128,13 +1128,15 @@ void GraphicsDrawer::drawTexturedRect(const TexturedRectParams & _params)
 	gSP.changed &= ~CHANGED_GEOMETRYMODE; // Don't update cull mode
 	m_drawingState = DrawingState::TexRect;
 
-	if (!m_texrectDrawer.isEmpty()) {
+	if (m_texrectDrawer.canContinue()) {
 		CombinerInfo & cmbInfo = CombinerInfo::get();
 		cmbInfo.setPolygonMode(DrawingState::TexRect);
 		cmbInfo.update();
 		_updateTextures();
 		cmbInfo.updateParameters();
 	} else {
+		if (!m_texrectDrawer.isEmpty())
+			m_texrectDrawer.draw();
 		gSP.changed &= ~CHANGED_GEOMETRYMODE; // Don't update cull mode
 		gSP.changed &= ~CHANGED_VIEWPORT; // Don't update viewport
 		if (_params.texrectCmd && (gSP.changed | gDP.changed) != 0)
@@ -1142,7 +1144,7 @@ void GraphicsDrawer::drawTexturedRect(const TexturedRectParams & _params)
 		gfxContext.enable(enable::CULL_FACE, false);
 
 		if (_params.texrectCmd && texturedRectSpecial != nullptr && texturedRectSpecial(_params)) {
-			gSP.changed |= CHANGED_GEOMETRYMODE;
+			gSP.changed |= CHANGED_GEOMETRYMODE | CHANGED_VIEWPORT;
 			return;
 		}
 
@@ -1172,11 +1174,6 @@ void GraphicsDrawer::drawTexturedRect(const TexturedRectParams & _params)
 	const f32 uly = _params.uly * (2.0f * scaleY) - 1.0f;
 	const f32 lrx = _params.lrx * (2.0f * scaleX) - 1.0f;
 	const f32 lry = _params.lry * (2.0f * scaleY) - 1.0f;
-	if (!bUseTexrectDrawer) {
-		// Flush text drawer
-		if (m_texrectDrawer.draw())
-			_updateStates(DrawingState::TexRect);
-	}
 	m_rect[0].x = ulx;
 	m_rect[0].y = uly;
 	m_rect[0].z = Z;
@@ -1435,7 +1432,7 @@ void GraphicsDrawer::drawOSD()
 		m_osdMessages.empty())
 		return;
 
-	gfxContext.bindFramebuffer(bufferTarget::DRAW_FRAMEBUFFER, ObjectHandle::null);
+	gfxContext.bindFramebuffer(bufferTarget::DRAW_FRAMEBUFFER, ObjectHandle::defaultFramebuffer);
 
 	DisplayWindow & wnd = DisplayWindow::get();
 	const s32 X = (wnd.getScreenWidth() - wnd.getWidth()) / 2;
@@ -1669,7 +1666,7 @@ void GraphicsDrawer::_initStates()
 	}
 	else {
 		gfxContext.enable(enable::DEPTH_TEST, true);
-#ifdef OS_ANDROID
+#if defined(OS_ANDROID) || defined(OS_IOS)
 		if (config.generalEmulation.forcePolygonOffset != 0)
 			gfxContext.setPolygonOffset(config.generalEmulation.polygonOffsetFactor, config.generalEmulation.polygonOffsetUnits);
 		else
@@ -1724,7 +1721,6 @@ void GraphicsDrawer::_initData()
 	FBInfo::fbInfo.reset();
 	m_texrectDrawer.init();
 	m_drawingState = DrawingState::Non;
-	m_bImageTexture = gfxContext.isSupported(SpecialFeatures::ImageTextures);
 	m_maxLineWidth = gfxContext.getMaxLineWidth();
 
 	gSP.changed = gDP.changed = 0xFFFFFFFF;

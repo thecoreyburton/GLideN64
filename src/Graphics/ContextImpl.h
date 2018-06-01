@@ -12,7 +12,10 @@ namespace graphics {
 		virtual ~ContextImpl() {}
 		virtual void init() = 0;
 		virtual void destroy() = 0;
+		virtual void setClampMode(ClampMode _mode) = 0;
+		virtual ClampMode getClampMode() = 0;
 		virtual void enable(EnableParam _parameter, bool _enable) = 0;
+		virtual u32 isEnabled(EnableParam _parameter) = 0;
 		virtual void cullFace(CullModeParam _mode) = 0;
 		virtual void enableDepthWrite(bool _enable) = 0;
 		virtual void setDepthCompare(CompareParam _mode) = 0;
@@ -24,7 +27,7 @@ namespace graphics {
 		virtual void clearDepthBuffer() = 0;
 		virtual void setPolygonOffset(f32 _factor, f32 _units) = 0;
 		virtual ObjectHandle createTexture(Parameter _target) = 0;
-		virtual void deleteTexture(ObjectHandle _name, bool _isFBTexture) = 0;
+		virtual void deleteTexture(ObjectHandle _name) = 0;
 		virtual void init2DTexture(const Context::InitTextureParams & _params) = 0;
 		virtual void update2DTexture(const Context::UpdateTextureDataParams & _params) = 0;
 		virtual void setTextureParameters(const Context::TexParameters & _parameters) = 0;
@@ -34,6 +37,7 @@ namespace graphics {
 		virtual s32 getMaxTextureSize() const = 0;
 		virtual void bindImageTexture(const Context::BindImageTextureParameters & _params) = 0;
 		virtual u32 convertInternalTextureFormat(u32 _format) const = 0;
+		virtual void textureBarrier() = 0;
 		virtual FramebufferTextureFormats * getFramebufferTextureFormats() = 0;
 		virtual ObjectHandle createFramebuffer() = 0;
 		virtual void deleteFramebuffer(ObjectHandle _name) = 0;
@@ -42,6 +46,7 @@ namespace graphics {
 		virtual ObjectHandle createRenderbuffer() = 0;
 		virtual void initRenderbuffer(const Context::InitRenderbufferParams & _params) = 0;
 		virtual bool blitFramebuffers(const Context::BlitFramebuffersParams & _params) = 0;
+		virtual void setDrawBuffers(u32 _num) = 0;
 		virtual PixelReadBuffer * createPixelReadBuffer(size_t _sizeInBytes) = 0;
 		virtual ColorBufferReader * createColorBufferReader(CachedTexture * _pTexture) = 0;
 		virtual bool isCombinerProgramBuilderObsolete() = 0;

@@ -500,20 +500,20 @@ void TextureCache::init()
 
 
 	m_pMSDummy = nullptr;
-	if (config.video.multisampling != 0 && gfxContext.isSupported(SpecialFeatures::Multisampling)) {
+	if (config.video.multisampling != 0 && Context::Multisampling) {
 		m_pMSDummy = addFrameBufferTexture(true); // we don't want to remove dummy texture
 		_initDummyTexture(m_pMSDummy);
 
-		Context::InitTextureParams params;
-		params.handle = m_pMSDummy->name;
-		params.mipMapLevel = 0;
-		params.msaaLevel = config.video.multisampling;
-		params.width = m_pMSDummy->realWidth;
-		params.height = m_pMSDummy->realHeight;
-		params.format = colorFormat::RGBA;
-		params.internalFormat = gfxContext.convertInternalTextureFormat(u32(internalcolorFormat::RGBA8));
-		params.dataType = datatype::UNSIGNED_BYTE;
-		gfxContext.init2DTexture(params);
+		Context::InitTextureParams msParams;
+		msParams.handle = m_pMSDummy->name;
+		msParams.mipMapLevel = 0;
+		msParams.msaaLevel = config.video.multisampling;
+		msParams.width = m_pMSDummy->realWidth;
+		msParams.height = m_pMSDummy->realHeight;
+		msParams.format = colorFormat::RGBA;
+		msParams.internalFormat = gfxContext.convertInternalTextureFormat(u32(internalcolorFormat::RGBA8));
+		msParams.dataType = datatype::UNSIGNED_BYTE;
+		gfxContext.init2DTexture(msParams);
 
 		activateMSDummy(0);
 		activateMSDummy(1);
@@ -527,12 +527,12 @@ void TextureCache::destroy()
 	current[0] = current[1] = nullptr;
 
 	for (Textures::const_iterator cur = m_textures.cbegin(); cur != m_textures.cend(); ++cur)
-		gfxContext.deleteTexture(cur->name, false);
+		gfxContext.deleteTexture(cur->name);
 	m_textures.clear();
 	m_lruTextureLocations.clear();
 
 	for (FBTextures::const_iterator cur = m_fbTextures.cbegin(); cur != m_fbTextures.cend(); ++cur)
-		gfxContext.deleteTexture(cur->second.name, true);
+		gfxContext.deleteTexture(cur->second.name);
 	m_fbTextures.clear();
 }
 
@@ -540,7 +540,7 @@ void TextureCache::_checkCacheSize()
 {
 	if (m_textures.size() >= m_maxCacheSize) {
 		CachedTexture& clsTex = m_textures.back();
-		gfxContext.deleteTexture(clsTex.name, false);
+		gfxContext.deleteTexture(clsTex.name);
 		m_lruTextureLocations.erase(clsTex.crc);
 		m_textures.pop_back();
 	}
@@ -564,7 +564,7 @@ void TextureCache::removeFrameBufferTexture(CachedTexture * _pTexture)
 		return;
 	FBTextures::const_iterator iter = m_fbTextures.find(u32(_pTexture->name));
 	assert(iter != m_fbTextures.cend());
-	gfxContext.deleteTexture(ObjectHandle(iter->second.name), true);
+	gfxContext.deleteTexture(ObjectHandle(iter->second.name));
 	m_fbTextures.erase(iter);
 }
 
@@ -763,7 +763,8 @@ void TextureCache::_loadBackground(CachedTexture *pTexture)
 	if (_loadHiresBackground(pTexture))
 		return;
 
-	u32 *pDest;
+	u32 *pDest = nullptr;
+	u16 *pDest16 = nullptr;
 
 	u8 *pSwapped, *pSrc;
 	u32 numBytes, bpl;
@@ -799,6 +800,7 @@ void TextureCache::_loadBackground(CachedTexture *pTexture)
 		free(pSwapped);
 		return;
 	}
+	pDest16 = reinterpret_cast<u16*>(pDest);
 
 	clampSClamp = pTexture->width - 1;
 	clampTClamp = pTexture->height - 1;
@@ -813,9 +815,9 @@ void TextureCache::_loadBackground(CachedTexture *pTexture)
 			tx = min(x, (u32)clampSClamp);
 
 			if (glInternalFormat == internalcolorFormat::RGBA8)
-				((u32*)pDest)[j++] = GetTexel((u64*)pSrc, tx, 0, pTexture->palette);
+				pDest[j++] = GetTexel((u64*)pSrc, tx, 0, pTexture->palette);
 			else
-				((u16*)pDest)[j++] = GetTexel((u64*)pSrc, tx, 0, pTexture->palette);
+				pDest16[j++] = static_cast<u16>(GetTexel((u64*)pSrc, tx, 0, pTexture->palette));
 		}
 	}
 
@@ -968,8 +970,13 @@ bool TextureCache::_loadHiresTexture(u32 _tile, CachedTexture *_pTexture, u64 & 
 
 void TextureCache::_loadDepthTexture(CachedTexture * _pTexture, u16* _pDest)
 {
-	if (!gfxContext.isSupported(SpecialFeatures::FragmentDepthWrite))
+	if (!config.generalEmulation.enableFragmentDepthWrite)
 		return;
+
+	u32 size = _pTexture->realWidth * _pTexture->realHeight;
+	std::vector<f32> pDestFloat(size);
+	for (u32 i = 0; i < size; ++i)
+		pDestFloat[i] = _pDest[i] / 65535.0f;
 
 	Context::InitTextureParams params;
 	params.handle = _pTexture->name;
@@ -977,10 +984,10 @@ void TextureCache::_loadDepthTexture(CachedTexture * _pTexture, u16* _pDest)
 	params.msaaLevel = 0;
 	params.width = _pTexture->realWidth;
 	params.height = _pTexture->realHeight;
-	params.internalFormat = internalcolorFormat::RED;
+	params.internalFormat = internalcolorFormat::R16F;
 	params.format = colorFormat::RED;
-	params.dataType = datatype::UNSIGNED_SHORT;
-	params.data = _pDest;
+	params.dataType = datatype::FLOAT;
+	params.data = pDestFloat.data();
 	gfxContext.init2DTexture(params);
 }
 
@@ -1315,7 +1322,7 @@ void TextureCache::activateTexture(u32 _t, CachedTexture *_pTexture)
 					params.minFilter = textureParameters::FILTER_NEAREST;
 				params.magFilter = textureParameters::FILTER_NEAREST;
 			}
-		} else if (bUseBilinear && config.generalEmulation.enableLOD != 0 && bUseLOD) { // Apply standard bilinear to first tile of mipmap texture
+		} else if (bUseBilinear && config.generalEmulation.enableLOD != 0) { // Apply standard bilinear to first tile of mipmap texture
 			params.minFilter = textureParameters::FILTER_LINEAR;
 			params.magFilter = textureParameters::FILTER_LINEAR;
 		} else { // Don't use texture filter. Texture will be filtered by filter shader
@@ -1441,7 +1448,7 @@ void TextureCache::_clear()
 	current[0] = current[1] = nullptr;
 
 	for (auto cur = m_textures.cbegin(); cur != m_textures.cend(); ++cur) {
-		gfxContext.deleteTexture(cur->name, false);
+		gfxContext.deleteTexture(cur->name);
 	}
 	m_textures.clear();
 	m_lruTextureLocations.clear();
@@ -1539,7 +1546,7 @@ void TextureCache::update(u32 _t)
 			return;
 		}
 
-		gfxContext.deleteTexture(currentTex.name, false);
+		gfxContext.deleteTexture(currentTex.name);
 		m_lruTextureLocations.erase(locations_iter);
 		m_textures.erase(iter);
 	}
