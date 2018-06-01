@@ -30,10 +30,6 @@ using namespace graphics;
 
 #define INDEXMAP_SIZE 80U
 
-#define SP_STATUS_HALT 0x0001
-#define SP_STATUS_BROKE 0x0002
-#define SP_STATUS_TASKDONE 0x0200
-
 #ifdef __VEC4_OPT
 #define VEC_OPT 4U
 #else
@@ -1196,9 +1192,9 @@ void gSPF3DAMVertex(u32 a, u32 n, u32 v0)
 }
 
 template <u32 VNUM>
-u32 gSPLoadSWVertexData(const SWVertex *orgVtx, SPVertex * spVtx, u32 v0, u32 vi, u32 n)
+u32 gSPLoadSWVertexData(const SWVertex *orgVtx, SPVertex * spVtx, u32 vi, u32 n)
 {
-	const u32 end = n - (n%VNUM) + v0;
+	const u32 end = n - (n%VNUM);
 	for (; vi < end; vi += VNUM) {
 		for(u32 j = 0; j < VNUM; ++j) {
 			SPVertex & vtx = spVtx[vi+j];
@@ -1216,20 +1212,32 @@ u32 gSPLoadSWVertexData(const SWVertex *orgVtx, SPVertex * spVtx, u32 v0, u32 vi
 	return vi;
 }
 
-void gSPSWVertex(const SWVertex * vertex, u32 n, u32 v0)
+void gSPSWVertex(const SWVertex * vertex, u32 n, const bool * const verticesToProcess)
 {
-	DebugMsg(DEBUG_NORMAL, "gSPSWVertex n = %i, v0 = %i\n", n, v0);
-
-	if ((n + v0) > INDEXMAP_SIZE) {
-		LOG(LOG_ERROR, "Using Vertex outside buffer v0=%i, n=%i\n", v0, n);
-		DebugMsg(DEBUG_NORMAL | DEBUG_ERROR, "//Using Vertex outside buffer v0 = %i, n = %i\n", v0, n);
-		return;
-	}
+	DebugMsg(DEBUG_NORMAL, "gSPSWVertex n = %i\n", n);
 
 	SPVertex * spVtx = dwnd().getDrawer().getVertexPtr(0);
-	u32 i = gSPLoadSWVertexData<VEC_OPT>(vertex, spVtx, v0, v0, n);
-	if (i < n + v0)
-		gSPLoadSWVertexData<1>(vertex + (i - v0), spVtx, v0, i, n);
+	if (verticesToProcess == nullptr) {
+		u32 i = gSPLoadSWVertexData<VEC_OPT>(vertex, spVtx, 0, n);
+		if (i < n)
+			gSPLoadSWVertexData<1>(vertex + i, spVtx, i, n);
+	} else {
+		for (u32 i = 0; i < n; ++i) {
+			if (verticesToProcess[i])
+				gSPLoadSWVertexData<1>(vertex + i, spVtx, i, i + 1);
+		}
+	}
+}
+
+void gSPSWVertex(const SWVertex * vertex, u32 v0, u32 n)
+{
+	DebugMsg(DEBUG_NORMAL, "gSPSWVertex v0 = %i, n = %i\n", v0, n);
+
+	SPVertex * spVtx = dwnd().getDrawer().getVertexPtr(0);
+	const u32 endIdx = v0 + n;
+	u32 i = gSPLoadSWVertexData<VEC_OPT>(vertex, spVtx, v0, endIdx);
+	if (i < endIdx)
+		gSPLoadSWVertexData<1>(vertex + i - v0, spVtx, i, endIdx);
 }
 
 void gSPT3DUXVertex(u32 a, u32 n, u32 ci)
@@ -1328,10 +1336,9 @@ void gSPBranchList( u32 dl )
 
 	DebugMsg(DEBUG_NORMAL, "gSPBranchList( 0x%08X ) nopush\n", dl );
 
-	if (((config.generalEmulation.hacks & hack_Infloop) != 0) && (address == (RSP.PC[RSP.PCi] - 8))) {
+	if (address == (RSP.PC[RSP.PCi] - 8)) {
 		RSP.infloop = true;
 		RSP.PC[RSP.PCi] -= 8;
-		*REG.SP_STATUS &= ~(SP_STATUS_TASKDONE | SP_STATUS_HALT | SP_STATUS_BROKE);
 		RSP.halt = true;
 		return;
 	}
@@ -1450,7 +1457,7 @@ void gSPDMATriangles( u32 tris, u32 n ){
 				mode |= G_CULL_FRONT;
 		}
 		if ((gSP.geometryMode&G_CULL_BOTH) != mode) {
-			drawer.drawDMATriangles(pVtx - drawer.getDMAVerticesData());
+			drawer.drawDMATriangles(static_cast<u32>(pVtx - drawer.getDMAVerticesData()));
 			pVtx = drawer.getDMAVerticesData();
 			gSP.geometryMode &= ~G_CULL_BOTH;
 			gSP.geometryMode |= mode;
@@ -1479,7 +1486,7 @@ void gSPDMATriangles( u32 tris, u32 n ){
 		++triangles;
 	}
 	DebugMsg(DEBUG_NORMAL, "gSPDMATriangles( 0x%08X, %i );\n");
-	drawer.drawDMATriangles(pVtx - drawer.getDMAVerticesData());
+	drawer.drawDMATriangles(static_cast<u32>(pVtx - drawer.getDMAVerticesData()));
 }
 
 void gSP1Quadrangle( s32 v0, s32 v1, s32 v2, s32 v3 )
@@ -2237,7 +2244,7 @@ void _copyDepthBuffer()
 	if (!config.frameBufferEmulation.enable)
 		return;
 
-	if (!gfxContext.isSupported(SpecialFeatures::BlitFramebuffer))
+	if (!Context::BlitFramebuffer)
 		return;
 
 	// The game copies content of depth buffer into current color buffer
@@ -2276,7 +2283,7 @@ void _copyDepthBuffer()
 	// Restore objects
 	if (pTmpBuffer->m_pDepthBuffer != nullptr)
 		pTmpBuffer->m_pDepthBuffer->setDepthAttachment(fbList.getCurrent()->m_FBO, bufferTarget::READ_FRAMEBUFFER);
-	gfxContext.bindFramebuffer(bufferTarget::READ_FRAMEBUFFER, ObjectHandle::null);
+	gfxContext.bindFramebuffer(bufferTarget::READ_FRAMEBUFFER, ObjectHandle::defaultFramebuffer);
 
 	// Set back current depth buffer
 	dbList.saveBuffer(gDP.depthImageAddress);

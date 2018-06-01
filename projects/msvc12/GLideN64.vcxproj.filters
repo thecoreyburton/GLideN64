@@ -341,9 +341,6 @@
     <ClCompile Include="..\..\src\uCodes\F3DSETA.cpp">
       <Filter>Source Files\uCodes</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\uCodes\F3DSWRS.cpp">
-      <Filter>Source Files\uCodes</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\uCodes\F3DTEXA.cpp">
       <Filter>Source Files\uCodes</Filter>
     </ClCompile>
@@ -371,11 +368,20 @@
     <ClCompile Include="..\..\src\uCodes\ZSort.cpp">
       <Filter>Source Files\uCodes</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\uCodes\ZSortBOSS.cpp">
+      <Filter>Source Files\uCodes</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\uCodes\F3DZEX2.cpp">
       <Filter>Source Files\uCodes</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\DisplayLoadProgress.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\uCodes\F5INDI_NABOO.cpp">
+      <Filter>Source Files\uCodes</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\uCodes\F5SWRS.cpp">
+      <Filter>Source Files\uCodes</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -664,9 +670,6 @@
     <ClInclude Include="..\..\src\uCodes\F3DSETA.h">
       <Filter>Header Files\uCodes</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\uCodes\F3DSWRS.h">
-      <Filter>Header Files\uCodes</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\uCodes\F3DTEXA.h">
       <Filter>Header Files\uCodes</Filter>
     </ClInclude>
@@ -694,11 +697,20 @@
     <ClInclude Include="..\..\src\uCodes\ZSort.h">
       <Filter>Header Files\uCodes</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\uCodes\ZSortBOSS.h">
+      <Filter>Header Files\uCodes</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\src\uCodes\F3DZEX2.h">
       <Filter>Header Files\uCodes</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\DisplayLoadProgress.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\uCodes\F5INDI_NABOO.h">
+      <Filter>Header Files\uCodes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\uCodes\F5SWRS.h">
+      <Filter>Header Files\uCodes</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

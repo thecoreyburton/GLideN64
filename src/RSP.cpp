@@ -20,6 +20,10 @@
 
 using namespace std;
 
+#define SP_STATUS_HALT 0x0001
+#define SP_STATUS_BROKE 0x0002
+#define SP_STATUS_TASKDONE 0x0200
+
 RSPInfo		RSP;
 
 static
@@ -58,11 +62,18 @@ void _ProcessDList()
 }
 
 static
-void _ProcessDListSWRS()
+void _ProcessDListFactor5()
 {
 	// Lemmy's note: read first 64 bits of this dlist
-	RSP.swDL[0] = _SHIFTR(*(u32*)&RDRAM[RSP.PC[0]], 0, 24);
+	RSP.F5DL[0] = _SHIFTR(*(u32*)&RDRAM[RSP.PC[0]], 0, 24);
 	RSP.PC[0] += 8;
+
+	static u32 vAddrToClear[7] = { 0x11C >> 2, 0x120 >> 2, 0x124 >> 2, 0x37C >> 2,
+		0x58C >> 2, 0x5B0 >> 2, 0x5B4 >> 2};
+	u32 * pDmem32 = reinterpret_cast<u32*>(DMEM);
+	for (u32 i = 0; i < 7; ++i)
+		pDmem32[vAddrToClear[i]] = 0U;
+
 	while (!RSP.halt) {
 		if ((RSP.PC[RSP.PCi] + 8) > RDRAMSize) {
 			break;
@@ -144,6 +155,12 @@ void RSP_ProcessDList()
 			gSPLoadUcodeEx(uc_start, uc_dstart, uc_dsize);
 
 		depthBufferList().setNotCleared();
+
+		if (GBI.getMicrocodeType() == ZSortBOSS) {
+			RSP.PC[1] = *(u32*)&DMEM[0xff8];
+			*REG.SP_STATUS &= ~0x300;  // clear sig1 | sig2
+			*REG.SP_STATUS |= 0x800;   // set sig4
+		}
 	}
 
 	switch (GBI.getMicrocodeType()) {
@@ -153,16 +170,19 @@ void RSP_ProcessDList()
 	case T3DUX:
 		RunT3DUX();
 		break;
-	case F3DSWRS:
-		_ProcessDListSWRS();
+	case F5SWRS:
+	case F5INDI_NABOO:
+		_ProcessDListFactor5();
 		break;
 	default:
 		_ProcessDList();
 		break;
 	}
 
-	if (RSP.infloop)
+	if(RSP.infloop && REG.SP_STATUS) {
+		*REG.SP_STATUS &= ~(SP_STATUS_TASKDONE | SP_STATUS_HALT | SP_STATUS_BROKE);
 		return;
+	}
 
 	if (config.frameBufferEmulation.copyDepthToRDRAM != Config::cdDisable) {
 		if ((config.generalEmulation.hacks & hack_rectDepthBufferCopyCBFD) != 0) {
@@ -291,7 +311,7 @@ void RSP_Init()
 		config.generalEmulation.hacks |= hack_texrect_shade_alpha;
 	else if (strstr(RSP.romname, (const char *)"THE LEGEND OF ZELDA") != nullptr ||
 			 strstr(RSP.romname, (const char *)"ZELDA MASTER QUEST") != nullptr)
-		 config.generalEmulation.hacks |= hack_subscreen | hack_ZeldaMonochrome;
+		config.generalEmulation.hacks |= hack_subscreen | hack_ZeldaMonochrome;
 	else if (strstr(RSP.romname, (const char *)"DOUBUTSUNOMORI") != nullptr ||
 			 strstr(RSP.romname, (const char *)"ANIMAL FOREST") != nullptr)
 		config.generalEmulation.hacks |= hack_subscreen;
@@ -308,7 +328,8 @@ void RSP_Init()
 		config.generalEmulation.hacks |= hack_ModifyVertexXyInShader;
 	else if (strstr(RSP.romname, (const char *)"Quake") != nullptr)
 		config.generalEmulation.hacks |= hack_doNotResetOtherModeH|hack_doNotResetOtherModeL;
-	else if (strstr(RSP.romname, (const char *)"QUAKE II") != nullptr)
+	else if (strstr(RSP.romname, (const char *)"QUAKE II") != nullptr ||
+			 strstr(RSP.romname, (const char *)"GAUNTLET LEGENDS") != nullptr)
 		config.generalEmulation.hacks |= hack_doNotResetOtherModeH;
 	else if (strstr(RSP.romname, (const char *)"quarterback_club_98") != nullptr)
 		config.generalEmulation.hacks |= hack_LoadDepthTextures;
@@ -322,8 +343,8 @@ void RSP_Init()
 	else if (strstr(RSP.romname, (const char *)"Resident Evil II") ||
 			 strstr(RSP.romname, (const char *)"BioHazard II"))
 		config.generalEmulation.hacks |= hack_RE2 | hack_ModifyVertexXyInShader | hack_LoadDepthTextures;
-	else if (strstr(RSP.romname, (const char *)"GAUNTLET LEGENDS") && (REG.SP_STATUS != nullptr))
-		config.generalEmulation.hacks |= hack_Infloop;
+	else if (strstr(RSP.romname, (const char *)"THPS") != nullptr)
+		config.generalEmulation.hacks |= hack_TonyHawk;
 
 	api().FindPluginPath(RSP.pluginpath);
 
